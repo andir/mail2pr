@@ -1,0 +1,34 @@
+Return-Path: <andi@notmuch.email>
+Delivered-To: andi@notmuch.email
+Received: from mx.h4ck.space
+	by mx.h4ck.space with LMTP
+	id AI8kHBEj2V8RLwAA8dXEnQ
+	(envelope-from <andi@notmuch.email>)
+	for <andi@notmuch.email>; Tue, 15 Dec 2020 20:56:49 +0000
+From: Andreas Rammhold <andreas@rammhold.de>
+To: andi@notmuch.email
+Cc: Andreas Rammhold <andreas@rammhold.de>
+Subject: [PATCH] Add a new file to the repository
+Date: Tue, 15 Dec 2020 21:56:40 +0100
+Message-Id: <20201215205639.31206-1-andreas@rammhold.de>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+X-TUID: qykPjMXGhaEp
+Content-Length: 272
+Tags: inbox to-me
+
+---
+ new-file | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 new-file
+
+diff --git a/new-file b/new-file
+new file mode 100644
+index 0000000..7863c3d
+--- /dev/null
++++ b/new-file
+@@ -0,0 +1 @@
++This is a new file that will be added to the repository.
+-- 
+2.29.2
+
