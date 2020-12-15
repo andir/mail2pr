@@ -3,6 +3,8 @@ from pathlib import Path
 import shutil
 import logging
 import argparse
+import os
+import cmd
 from tempfile import TemporaryDirectory
 
 from .utils import slugify_subject, create_cache_directory, sh
@@ -54,18 +56,24 @@ class Worktree:
         else:
             self.path = self._tempdir
 
+        self.branch_name = f"ml2pr/{self.mail.slug}"
+
         self.repo_path = repo_path
         self.worktree = self.path / "repo"
         self.worktree.mkdir()
 
     def setup(self):
         try:
-            sh(["git", "-C", self.repo_path, "fetch", "origin", self.base_branch])
+            sh(["git", "-C", self.repo_path, "fetch", "origin", f"{self.base_branch}:refs/base-{self.branch_name}"])
         except Exception as e:
             raise GitFetchFailed(e)
 
+        sh(["git", "-C", self.repo_path, "branch", "-f", self.branch_name,
+            f"refs/base-{self.branch_name}"])
+
         try:
-            sh(["git", "-C", self.repo_path, "worktree", "add", str(self.worktree), "-b", f"ml2pr/{self.mail.slug}", f"origin/{self.base_branch}"])
+            sh(["git", "-C", self.repo_path, "worktree", "add", str(self.worktree),
+                self.branch_name])
         except Exception as e:
             raise GitFetchFailed(e)
 
@@ -92,7 +100,63 @@ class Worktree:
         """
         Eval the repo after applying this patch.
         """
-        pass
+        sh(["nix-instantiate", "--eval", expression], cwd=self.worktree)
+
+    def build(self, expression):
+        """
+        Eval the repo after applying this patch.
+        """
+        sh(["nix-build", expression], cwd=self.worktree)
+
+    def shell(self):
+        """
+        Launch a shell in the checkout
+        """
+        return sh(["bash"], cwd=self.worktree, check=False)
+
+    def review(self):
+        """
+        Run nixpkgs-review
+        """
+        sh(["nixpkgs-review", "rev", "--no-shell", "-b",
+            self.base_branch, self.branch_name]
+                , cwd=self.repo_path)
+
+
+class Shell(cmd.Cmd):
+    
+    intro = '''
+        Run commands on the applied patches
+    '''
+
+    def __init__(self, worktree: Worktree, mail: Mail):
+        super().__init__()
+        self.mail = mail
+        self.worktree = worktree
+
+    def do_eval(self, arg):
+        """
+        Eval the given expression
+        """
+        self.worktree.eval(arg)
+
+    def do_build(self, arg):
+        """
+        Eval the given expression
+        """
+        self.worktree.build(arg)
+
+    def do_shell(self, _arg):
+        """
+        Launch interactive shell within the worktree
+        """
+        self.worktree.shell()
+
+    def do_review(self, _arg):
+        """
+        Run nixpkgs-review on the changes
+        """
+        self.worktree.review()
 
 
 def main():
@@ -102,8 +166,9 @@ def main():
     args = parser.parse_args()
     base_branch = "master"
     mail = Mail(args.file)
-    with Worktree("/home/andi/dev/private/mail2pr", base_branch, mail) as wt:
-        pass
+    with Worktree(os.getcwd(), base_branch, mail) as wt:
+        Shell(wt, mail).cmdloop()
+    print("all done")
 
 
 if __name__ == "__main__":

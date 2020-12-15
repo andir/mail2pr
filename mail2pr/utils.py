@@ -9,9 +9,9 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def sh(command: List[str], cwd=None, input=None):
+def sh(command: List[str], cwd=None, input=None, check=True):
     logging.info("$ " + ' '.join(command))
-    subprocess.run(command, check=True, cwd=cwd, input=input)
+    return subprocess.run(command, check=check, cwd=cwd, input=input)
 
 
 def slugify_subject(subject: str) -> str:
