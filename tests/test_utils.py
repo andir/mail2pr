@@ -27,7 +27,7 @@ def test_get_slug():
     ("abcdef01234 ABCDEF", "abcdef01234-ABCDEF"),
     (" whitespaces ", "whitespaces"),
     ("/*%-funny*/", "funny"),
-    ("[PATCH] something: init at 1.3.3.7", "something-init-at-1.3.3.7"),
+    ("[PATCH] something: init at 1.3.3.7", "something-init-at-1-3-3-7"),
     ("[PATCH] add some amazing feature", "add-some-amazing-feature"),
     ("[PATCHv2] add some amazing feature", "add-some-amazing-feature"),
     ("Re: [PATCHv2] add some amazing feature", "add-some-amazing-feature"),

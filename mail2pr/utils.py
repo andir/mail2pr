@@ -38,8 +38,8 @@ def slugify_subject(subject: str) -> str:
 
     subject = trim_subject(subject)
 
-    # finally replace everything that isn't 0-9a-bA-B. with -
-    subject = re.sub(r"[^0-9a-zA-Z\.]", "-", subject)
+    # finally replace everything that isn't 0-9a-bA-B with -
+    subject = re.sub(r"[^0-9a-zA-Z]", "-", subject)
     # remove double/triple/… dashes
     subject = re.sub(r"--+", "-", subject)
     # remoe dashes at the start and the end
