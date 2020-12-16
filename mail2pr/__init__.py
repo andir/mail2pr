@@ -119,7 +119,7 @@ class Worktree:
         """
         Get the commit log since the base branch ref
         """
-        return sh(["git", "--no-pager", "log", f"refs/base-{self.branch_name}..{self.branch_name}"], stdout=subprocess.PIPE, text=True).stdout
+        return sh(["git", "--no-pager", "log", f"refs/base-{self.branch_name}..{self.branch_name}"], stdout=subprocess.PIPE, text=True, cwd=self.worktree).stdout
 
     def eval(self, expression='nixos/release-combined.nix'):
         """
