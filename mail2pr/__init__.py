@@ -161,7 +161,7 @@ I'm forwarding this patch that I received via email:
 ```
 {log}
 ```
-        '''
+'''
         if self.mail.archive_url:
             message += f'''
 You can find the submission in the [archive]({self.mail.archive_url}).
