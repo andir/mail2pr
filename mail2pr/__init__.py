@@ -259,9 +259,12 @@ def main():
                   args.github_repo) as wt:
         try:
             wt.setup()
-            Shell(wt, mail).cmdloop()
+        except GitAMFailed as e:
+            print("Failed to apply the patch. Please fix this up manually or quit")
+            wt.shell()
         except Exception as e:
             print(e)
+        Shell(wt, mail).cmdloop()
     print("all done")
 
 
