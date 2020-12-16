@@ -27,7 +27,11 @@ class Mail:
         """
         Return the archive url of the message
         """
-        return self.email['Archived-At'].lstrip('<').rstrip('>')
+        url = self.email['Archived-At']
+        if url:
+            url = url.lstrip('<').rstrip('>')
+
+        return url
 
     @property
     def subject(self):
