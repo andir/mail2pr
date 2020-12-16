@@ -1,13 +1,14 @@
 from email.parser import BytesParser
 from pathlib import Path
+import subprocess
 import shutil
 import logging
 import argparse
 import os
 import cmd
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, NamedTemporaryFile
 
-from .utils import slugify_subject, create_cache_directory, sh
+from .utils import slugify_subject, create_cache_directory, sh, trim_subject
 
 
 class Mail:
@@ -20,6 +21,21 @@ class Mail:
         Return the message id as written in the mail header.
         """
         return self.email['message-id']
+
+    @property
+    def archive_url(self):
+        """
+        Return the archive url of the message
+        """
+        return self.email['Archived-At']
+
+    @property
+    def subject(self):
+        """
+        Return the subject without the [PATCH], Re:, … part
+        """
+        subject = self.email['subject']
+        return trim_subject(subject)
 
     @property
     def slug(self):
@@ -47,9 +63,13 @@ class GitWorktreeAddFailed(Exception):
 
 
 class Worktree:
-    def __init__(self, repo_path: Path, base_branch: str, mail: Mail):
+    def __init__(self, repo_path: Path, base_branch: str, mail: Mail, github_user: str,
+                 github_org: str, github_repo: str):
         self.mail = mail
         self.base_branch = base_branch
+        self.github_user = github_user
+        self.github_org = github_org
+        self.github_repo = github_repo
         self._tempdir = create_cache_directory(name=mail.slug)
         if isinstance(self._tempdir, TemporaryDirectory):
             self.path = Path(self._tempdir.name)
@@ -86,15 +106,20 @@ class Worktree:
             raise GitAMFailed(e)
 
     def cleanup(self):
-        shutil.rmtree(self.path)
+        shutil.rmtree(str(self.path))
         sh(["git", "-C", self.repo_path, "worktree", "prune"])
 
     def __enter__(self):
-        self.setup()
         return self
 
     def __exit__(self, type, value, traceback):
         self.cleanup()
+
+    def log(self):
+        """
+        Get the commit log since the base branch ref
+        """
+        return sh(["git", "--no-pager", "log", f"refs/base-{self.branch_name}..{self.branch_name}"], stdout=subprocess.PIPE, text=True).stdout
 
     def eval(self, expression='nixos/release-combined.nix'):
         """
@@ -122,9 +147,48 @@ class Worktree:
             self.base_branch, self.branch_name]
                 , cwd=self.repo_path)
 
+    def pr(self):
+        """
+        Create a PR
+        """
+
+        log = self.log().strip()
+
+        message = f'''{self.mail.subject}
+
+I'm forwarding this patch that I received via email:
+
+```
+{log}
+```
+        '''
+        if self.mail.archive_url:
+            message += f'''
+You can find the submission in the [archive]({self.mail.archive_url}).
+            '''
+
+        print('messsage:', message)
+
+        res = sh(["git", "push", "-f", f"ssh://git@github.com/{self.github_user}/{self.github_repo}.git", f"{self.branch_name}:{self.branch_name}"], check=False)
+
+        if res.returncode != 0:
+            print("Failed to push?!")
+            return
+
+        with NamedTemporaryFile() as fh:
+            # hub pull-request --base OWNER:master --head MYUSER:my-branch
+            fh.write(message.encode())
+            fh.flush()
+            res = sh(["hub", "pull-request", "--base", f"{self.github_org}:{self.base_branch}",
+                "--head", f"{self.github_user}:{self.branch_name}",
+                "-F", fh.name,
+                "--edit",
+               ], check=False)
+            if res.returncode != 0:
+                print("Failed to open PR")
+
 
 class Shell(cmd.Cmd):
-    
     intro = '''
         Run commands on the applied patches
     '''
@@ -133,6 +197,9 @@ class Shell(cmd.Cmd):
         super().__init__()
         self.mail = mail
         self.worktree = worktree
+
+    def can_exit(self):
+        return True
 
     def do_eval(self, arg):
         """
@@ -158,16 +225,45 @@ class Shell(cmd.Cmd):
         """
         self.worktree.review()
 
+    def do_log(self, _arg):
+        """
+        Show the git log of the changes
+        """
+        print(self.worktree.log())
+
+    def do_pr(self, _arg):
+        """
+        Create GitHub PR
+        """
+        self.worktree.pr()
+
+    def do_quit(self, _arg):
+        """
+        Quit the shell
+        """
+        return True
+
+    do_EOF = do_quit
+
 
 def main():
     logging.basicConfig(level=logging.DEBUG)
     parser = argparse.ArgumentParser(description='Convert patches received via mail to pesky GitHub PRs')
     parser.add_argument('file', type=argparse.FileType('rb'))
+    parser.add_argument('--base', type=str, default='master', help='The base branch this patch will be applied to')
+    parser.add_argument('--repo', type=str, default=os.getcwd())
+    parser.add_argument('--github-user', type=str, default='andir', help="Your username on GitHub")
+    parser.add_argument('--github-org', type=str, default='andir', help="The GH org the target repo belongs to e.g. nixos for nixos/nixpkgs")
+    parser.add_argument('--github-repo', type=str, default='mail2pr', help="The GH repo name within the org the target repo belongs to e.g. nixpkgs for nixos/nixpkgs")
     args = parser.parse_args()
-    base_branch = "master"
     mail = Mail(args.file)
-    with Worktree(os.getcwd(), base_branch, mail) as wt:
-        Shell(wt, mail).cmdloop()
+    with Worktree(args.repo, args.base, mail, args.github_user, args.github_org,
+                  args.github_repo) as wt:
+        try:
+            wt.setup()
+            Shell(wt, mail).cmdloop()
+        except Exception as e:
+            print(e)
     print("all done")
 
 

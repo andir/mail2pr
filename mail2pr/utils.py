@@ -9,25 +9,34 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def sh(command: List[str], cwd=None, input=None, check=True):
+def sh(command: List[str], cwd=None, input=None, check=True, stdout=None, text=None):
     logging.info("$ " + ' '.join(command))
-    return subprocess.run(command, check=check, cwd=cwd, input=input)
+    return subprocess.run(command, check=check, cwd=cwd, input=input, stdout=stdout, text=text)
+
+
+def trim_subject(subject: str) -> str:
+    """
+    Return the subject without leading/trailling whitespaces and mail specific prefixes.
+    """
+    subject = subject.strip()
+    subject = subject.lstrip('Re:').lstrip()
+    subject = subject.lstrip('re:').lstrip()
+    subject = subject.lstrip(':').lstrip()
+    if subject.startswith('['):
+        # strip [PATCH] and other prefixes in brackets
+        m = re.match(r"^\[[^\]]+\](?P<subject>.+)$", subject)
+        if m:
+            subject = m.group('subject').strip()
+
+    return subject
 
 
 def slugify_subject(subject: str) -> str:
     """
     Returns a string that is safe for usage as git branch name.
     """
-    subject = subject.strip()
-    subject = subject.lstrip('Re:').lstrip()
-    subject = subject.lstrip('re:').lstrip()
-    subject = subject.lstrip(':').lstrip()
 
-    if subject.startswith('['):
-        # strip [PATCH] and other prefixes in brackets
-        m = re.match(r"^\[[^\]]+\](?P<subject>.+)$", subject)
-        if m:
-            subject = m.group('subject').strip()
+    subject = trim_subject(subject)
 
     # finally replace everything that isn't 0-9a-bA-B. with -
     subject = re.sub(r"[^0-9a-zA-Z\.]", "-", subject)
