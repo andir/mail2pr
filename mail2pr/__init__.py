@@ -167,9 +167,7 @@ I'm forwarding this patch that I received via email:
 You can find the submission in the [archive]({self.mail.archive_url}).
             '''
 
-        print('messsage:', message)
-
-        res = sh(["git", "push", "-f", f"ssh://git@github.com/{self.github_user}/{self.github_repo}.git", f"{self.branch_name}:{self.branch_name}"], check=False)
+        res = sh(["git", "push", "-f", f"ssh://git@github.com/{self.github_user}/{self.github_repo}.git", f"{self.branch_name}:{self.branch_name}"], check=False, cwd=self.worktree)
 
         if res.returncode != 0:
             print("Failed to push?!")
@@ -183,7 +181,7 @@ You can find the submission in the [archive]({self.mail.archive_url}).
                 "--head", f"{self.github_user}:{self.branch_name}",
                 "-F", fh.name,
                 "--edit",
-               ], check=False)
+               ], check=False, cwd=self.worktree)
             if res.returncode != 0:
                 print("Failed to open PR")
 
